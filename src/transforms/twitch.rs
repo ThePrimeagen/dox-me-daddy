@@ -9,7 +9,6 @@ impl PipelineTransform for TwitchTransform {
         match event {
             Some(ForwarderEvent::TwitchMessageRaw(ServerMessage::Privmsg(m))) => {
                 let e = Some(ForwarderEvent::TwitchMessage(m.into()));
-                info!("Twitch message {:?}", e);
                 return e;
             }
             _ => {

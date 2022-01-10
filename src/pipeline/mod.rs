@@ -36,12 +36,7 @@ async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: Tok
             .lock()
             .expect("Pipeline#add_transforms lock should never fail")
             .iter()
-            .enumerate()
-            .fold(Some(message), |m, (idx, t)| {
-                let out = t.transform(m);
-                info!("handle_pipeline({}): {:?}", idx, out);
-                return out;
-            });
+            .fold(Some(message), |m, t| t.transform(m));
 
         if let Some(message) = message {
             tx.send(message)
