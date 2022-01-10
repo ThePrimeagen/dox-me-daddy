@@ -4,6 +4,7 @@ WORKDIR /app
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./src/lib.rs ./src/lib.rs
+RUN rustup default nightly
 RUN cargo fetch
 COPY ./src ./src
 RUN cargo build --release --bin serve
