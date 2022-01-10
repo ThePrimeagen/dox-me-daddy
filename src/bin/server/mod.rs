@@ -1,6 +1,6 @@
 use std::{collections::{HashMap}, sync::{Arc, Mutex}, net::SocketAddr, mem::swap};
 
-use dox_me_daddy::{opts::{EventOpts}, error::{DoxMeDaddyError}, socket::Socket, forwarder::{Forwarder, ForwarderEvent}};
+use dox_me_daddy::{opts::{EventOpts}, error::{DoxMeDaddyError}, socket::Socket, forwarder::{Forwarder, ForwarderEvent, ReceiverGiver}};
 
 use futures::SinkExt;
 use futures_channel::mpsc::{unbounded};
@@ -38,9 +38,9 @@ async fn handle_socket<T: Forwarder>(id: usize, stream: TcpStream, addr: SocketA
             let peer_map = peer_map.lock().expect("peer_map.lock to never fail");
             if let Some(peer) = peer_map.get(&id) {
                 if !peer.is_prime {
-                    info!("prime message: {:?}", msg);
                     return future::ok(());
                 }
+                info!("prime message: {:?}", msg);
             } else {
                 return future::ok(());
             }
@@ -105,6 +105,20 @@ impl Forwarder for Server {
     }
 }
 
+impl ReceiverGiver for Server {
+    fn take_receiver(&mut self) -> Option<tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>> {
+        let mut rx: Option<TokioUReceiver> = None;
+        swap(&mut self.rx, &mut rx);
+        return rx;
+    }
+
+    fn give_receiver(&mut self, rx: Option<tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>>) {
+        if let Some(rx) = rx {
+            self.rx = Some(rx);
+        }
+    }
+}
+
 impl Server {
     pub async fn new(opts: EventOpts) -> Result<Server, DoxMeDaddyError> {
         let server = TcpListener::bind(format!("{}:{}", opts.addr, opts.port)).await?;
@@ -136,11 +150,5 @@ impl Server {
             tx: to_server_sockets,
             rx: Some(server_websocket_receive),
         });
-    }
-
-    pub fn take_socket_messages(&mut self) -> Option<TokioUReceiver> {
-        let mut rx: Option<TokioUReceiver> = None;
-        swap(&mut self.rx, &mut rx);
-        return rx;
     }
 }

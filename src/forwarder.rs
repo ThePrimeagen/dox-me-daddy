@@ -23,3 +23,8 @@ impl ForwarderEvent {
 pub trait Forwarder {
     fn push(&self, event: ForwarderEvent) -> Result<(), DoxMeDaddyError>;
 }
+
+pub trait ReceiverGiver {
+    fn take_receiver(&mut self) -> Option<tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>>;
+    fn give_receiver(&mut self, rx: Option<tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>>);
+}

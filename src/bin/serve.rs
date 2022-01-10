@@ -1,15 +1,11 @@
 mod server;
 
+use dox_me_daddy::forwarder::ReceiverGiver;
 use dox_me_daddy::{error::DoxMeDaddyError, opts::EventOpts, forwarder::ForwarderEvent};
 
 use structopt::StructOpt;
 use dotenv::dotenv;
-use log::warn;
-
-
-use log::{info};
-
-
+use log::{info, warn};
 
 use crate::server::Server;
 
@@ -30,7 +26,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     //let _quirk = Quirk::new(tx.clone(), get_quirk_token().await?);
 
     let mut server = Server::new(opts).await?;
-    if let Some(rx) = server.take_socket_messages() {
+    if let Some(rx) = server.take_receiver() {
         tokio::spawn(mux_that(rx));
     }
 
