@@ -133,9 +133,7 @@ pub async fn connect(
 
     if let Some(mut rx) = giver {
         while let Some(message) = rx.recv().await {
-            forwarder
-                .send(message)
-                .expect("connect#forwarder should never fail.");
+            forwarder.send(message);
         }
     }
 

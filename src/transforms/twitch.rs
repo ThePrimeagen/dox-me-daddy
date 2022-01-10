@@ -1,4 +1,3 @@
-use log::info;
 use twitch_irc::message::ServerMessage;
 
 use crate::{forwarder::ForwarderEvent, pipeline::PipelineTransform};
