@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use tokio::task::JoinError;
 use tokio_tungstenite::tungstenite::{
     handshake::server::NoCallback, HandshakeError, Message, ServerHandshake,
@@ -21,7 +22,14 @@ pub enum DoxMeDaddyError {
     FutureTrySendForwarderError(FutureSendForwarder),
     JoinError(JoinError),
     ReceiverGiver,
+    SerdeJsonError(serde_json::Error),
     Unknown,
+}
+
+impl From<serde_json::Error> for DoxMeDaddyError {
+    fn from(err: serde_json::Error) -> Self {
+        return DoxMeDaddyError::SerdeJsonError(err);
+    }
 }
 
 impl From<JoinError> for DoxMeDaddyError {

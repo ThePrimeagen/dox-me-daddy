@@ -36,7 +36,12 @@ async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: Tok
             .lock()
             .expect("Pipeline#add_transforms lock should never fail")
             .iter()
-            .fold(Some(message), |m, t| t.transform(m));
+            .enumerate()
+            .fold(Some(message), |m, (idx, t)| {
+                let out = t.transform(m);
+                info!("handle_pipeline({}): {:?}", idx, out);
+                return out;
+            });
 
         if let Some(message) = message {
             tx.send(message)
@@ -48,10 +53,7 @@ async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: Tok
 impl Pipeline {
     pub fn new(mut fan_in: FanIn, opts: &ServerOpts) -> Pipeline {
         let (tx, rx) = unbounded_channel();
-        let mut transforms: Vec<Box<dyn PipelineTransform + Send>> = vec![];
-        if opts.debug {
-            transforms.push(Box::new(DebugTransform {}));
-        }
+        let transforms: Vec<Box<dyn PipelineTransform + Send>> = vec![];
         let transforms = Arc::new(Mutex::new(transforms));
 
         // Unwrap safe here.

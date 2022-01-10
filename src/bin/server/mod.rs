@@ -54,7 +54,7 @@ async fn handle_socket(
                 Socket {
                     addr,
                     tx: inbound_tx.clone(),
-                    is_prime: true,
+                    is_prime: false, // TODO: I am still wondering about this...
                     id,
                 },
             );

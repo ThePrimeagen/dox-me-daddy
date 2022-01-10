@@ -63,8 +63,7 @@ impl Quirk {
                 return future::ok(());
             }
             if let Ok(text) = msg.into_text() {
-                info!("From Quirk: text: {}", text);
-                tx.send(ForwarderEvent::QuirkMessage(text)).expect("test");
+                tx.send(ForwarderEvent::QuirkMessageRaw(text)).expect("test");
             }
             return future::ok(());
         }));

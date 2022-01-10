@@ -1,4 +1,5 @@
 use tokio_tungstenite::tungstenite::Message;
+use twitch_irc::message::{PrivmsgMessage, ServerMessage};
 
 use crate::{
     error::DoxMeDaddyError,
@@ -31,12 +32,7 @@ impl PartialEq<Socket> for Socket {
 
 impl Forwarder for Socket {
     fn push(&self, event: ForwarderEvent) -> Result<(), DoxMeDaddyError> {
-        match event {
-            ForwarderEvent::WebsocketMessage(m) => {
-                self.tx.unbounded_send(m)?;
-                return Ok(());
-            }
-            _ => return Ok(()),
-        }
+        self.tx.unbounded_send(event.try_into()?)?;
+        return Ok(());
     }
 }

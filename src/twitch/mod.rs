@@ -49,7 +49,7 @@ impl Twitch {
         let join_handle = tokio::spawn(async move {
             loop {
                 if let Some(message) = incoming_messages.recv().await {
-                    inner_tx.send(ForwarderEvent::TwitchMessage(message)).expect("Never going to give you up");
+                    inner_tx.send(ForwarderEvent::TwitchMessageRaw(message)).expect("Never going to give you up");
                 } else {
                     print!("LOOK AT ME FAIL");
                 }
