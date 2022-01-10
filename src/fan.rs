@@ -30,6 +30,7 @@ impl ReceiverTaker for FanIn {
         &mut self,
         giver: &mut T,
     ) -> Result<(), crate::error::DoxMeDaddyError> {
+
         if let Some(rx) = giver.take_receiver() {
             tokio::spawn(handle_receiver(rx, self.tx.clone()));
         }

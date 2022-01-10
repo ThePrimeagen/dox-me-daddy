@@ -1,16 +1,20 @@
-use log::error;
+
+use futures::{StreamExt, TryStreamExt, future};
+use log::{info};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::task::JoinHandle;
-use tokio_tungstenite::tungstenite::connect;
+use tokio_tungstenite::{connect_async};
+
 use url::Url;
 
 use crate::error::DoxMeDaddyError;
 use crate::forwarder::{ForwarderEvent, ReceiverGiver};
+use crate::opts::ServerOpts;
 use crate::simple_receiver_giver;
 
 pub struct Quirk {
-    pub join_handle: JoinHandle<()>,
+    pub join_handle: JoinHandle<Result<(), tokio_tungstenite::tungstenite::Error>>,
     rx: Option<UnboundedReceiver<ForwarderEvent>>,
 }
 
@@ -46,32 +50,24 @@ pub async fn get_quirk_token() -> Result<String, DoxMeDaddyError> {
 simple_receiver_giver!(Quirk);
 
 impl Quirk {
-    pub async fn new() -> Result<Quirk, DoxMeDaddyError> {
+    pub async fn new(_opts: &ServerOpts) -> Result<Quirk, DoxMeDaddyError> {
         let quirk_token = get_quirk_token().await?;
         let url = format!("wss://websocket.quirk.tools?access_token={}", quirk_token);
+
+        let (socket, _) = connect_async(Url::parse(url.as_str()).unwrap()).await.expect("Can't connect");
+        let (_, incoming) = socket.split();
         let (tx, rx) = unbounded_channel();
 
-        let (mut socket, _) = connect(Url::parse(url.as_str()).unwrap()).expect("Can't connect");
-
-        // first thing you should do: start consuming incoming messages,
-        // otherwise they will back up.
-        let join_handle: JoinHandle<()> = tokio::spawn(async move {
-            while let Ok(msg) = socket.read_message() {
-                if !msg.is_text() {
-                    continue;
-                }
-                if let Ok(text) = msg.into_text() {
-                    match tx.send(ForwarderEvent::QuirkMessage(text)) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("Quirk#tx unable to send. {:?}", e);
-                            continue;
-                        }
-                    }
-                }
+        let join_handle = tokio::spawn(incoming.try_for_each(move |msg| {
+            if !msg.is_text() {
+                return future::ok(());
             }
-            return ();
-        });
+            if let Ok(text) = msg.into_text() {
+                info!("From Quirk: text: {}", text);
+                tx.send(ForwarderEvent::QuirkMessage(text)).expect("test");
+            }
+            return future::ok(());
+        }));
 
         return Ok(Quirk {
             join_handle,

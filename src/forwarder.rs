@@ -1,4 +1,5 @@
 use tokio_tungstenite::tungstenite::Message;
+use twitch_irc::message::ServerMessage;
 
 use crate::error::DoxMeDaddyError;
 
@@ -7,9 +8,16 @@ type TokioUReceiver = tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>;
 
 #[derive(Debug, Clone)]
 pub enum ForwarderEvent {
+    TwitchMessage(ServerMessage),
     QuirkMessage(String),
     WebsocketMessage(Message),
     Message(String),
+}
+
+impl From<&str> for ForwarderEvent {
+    fn from(s: &str) -> Self {
+        return ForwarderEvent::Message(s.to_string());
+    }
 }
 
 impl ForwarderEvent {

@@ -56,7 +56,7 @@ impl Pipeline {
 
         // Unwrap safe here.
         let join_handle = tokio::spawn(handle_pipeline(
-            fan_in.take_receiver().unwrap(),
+            fan_in.take_receiver().expect("pipeline fan_in must have receiver"),
             transforms.clone(),
             tx.clone(),
         ));
