@@ -1,19 +1,17 @@
 mod server;
 
-use dox_me_daddy::forwarder::ReceiverGiver;
-use dox_me_daddy::{error::DoxMeDaddyError, opts::EventOpts, forwarder::ForwarderEvent};
+use dox_me_daddy::fan::FanIn;
+use dox_me_daddy::forwarder::{ReceiverGiver, ReceiverTaker, connect};
+use dox_me_daddy::pipeline::Pipeline;
+use dox_me_daddy::quirk::Quirk;
+use dox_me_daddy::{error::DoxMeDaddyError, opts::ServerOpts};
+
 
 use structopt::StructOpt;
 use dotenv::dotenv;
-use log::{info, warn};
+use log::{warn};
 
 use crate::server::Server;
-
-async fn mux_that(mut rx: tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>) {
-    while let Some(message) = rx.recv().await {
-        info!("Server pushed message: {:?}", message);
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), DoxMeDaddyError> {
@@ -22,17 +20,23 @@ async fn main() -> Result<(), DoxMeDaddyError> {
 
     warn!("Starting Application");
 
-    let opts = EventOpts::from_args();
-    //let _quirk = Quirk::new(tx.clone(), get_quirk_token().await?);
+    let opts = ServerOpts::from_args();
+    let mut to_pipeline = FanIn::new();
+    let mut server = Server::new(&opts).await?;
+    let mut quirk = Quirk::new().await?;
 
-    let mut server = Server::new(opts).await?;
-    if let Some(rx) = server.take_receiver() {
-        tokio::spawn(mux_that(rx));
-    }
+    to_pipeline.take(&mut server)?;
+    to_pipeline.take(&mut quirk)?;
 
+    let mut pipeline = Pipeline::new(to_pipeline, &opts);
+
+    tokio::spawn(connect(pipeline.take_receiver(), server.tx.clone()));
+
+    // Until the server dies, we ride
+    // future::select(server.join_handle, pipeline.join_handle).await;
     server.join_handle.await?;
 
-    warn!("Application Ended");
+    warn!("Application Ended, You Lose");
 
     return Ok(());
 }

@@ -1,15 +1,17 @@
 use log::error;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::connect;
 use url::Url;
 
 use crate::error::DoxMeDaddyError;
-use crate::event::Event;
+use crate::forwarder::{ForwarderEvent, ReceiverGiver};
+use crate::simple_receiver_giver;
 
 pub struct Quirk {
     pub join_handle: JoinHandle<()>,
+    rx: Option<UnboundedReceiver<ForwarderEvent>>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -38,9 +40,14 @@ pub async fn get_quirk_token() -> Result<String, DoxMeDaddyError> {
     return Ok(res.access_token);
 }
 
+simple_receiver_giver!(Quirk);
+
 impl Quirk {
-    pub fn new(tx: UnboundedSender<Event>, quirk_token: String) -> Quirk {
+    pub async fn new() -> Result<Quirk, DoxMeDaddyError> {
+        let quirk_token = get_quirk_token().await?;
         let url = format!("wss://websocket.quirk.tools?access_token={}", quirk_token);
+        let (tx, rx) = unbounded_channel();
+
         let (mut socket, _) =
             connect(Url::parse(url.as_str()).unwrap())
                 .expect("Can't connect");
@@ -53,21 +60,21 @@ impl Quirk {
                     continue;
                 }
                 if let Ok(text) = msg.into_text() {
-                    let event = Event::QuirkMessage(text);
-                    match tx.send(event) {
+                    match tx.send(ForwarderEvent::QuirkMessage(text)) {
                         Ok(_) => {}
                         Err(e) => {
-                            error!("There was an error with Quirk#tx.send: {:?}", e);
+                            error!("Quirk#tx unable to send. {:?}", e);
+                            continue;
                         }
                     }
                 }
             }
-
             return ();
         });
 
-        return Quirk {
+        return Ok(Quirk {
             join_handle,
-        };
+            rx: Some(rx),
+        });
     }
 }

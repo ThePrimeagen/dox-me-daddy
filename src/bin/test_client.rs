@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use dox_me_daddy::{error::DoxMeDaddyError, opts::EventOpts};
+use dox_me_daddy::{error::DoxMeDaddyError, opts::ServerOpts};
 use futures::{pin_mut, future};
 use log::info;
 use reqwest::Url;
@@ -13,7 +13,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     dotenv().expect("dotenv to work");
     env_logger::init();
 
-    let opts = EventOpts::from_args();
+    let opts = ServerOpts::from_args();
     let url = format!("ws://{}:{}", opts.addr, opts.port);
 
     let (socket, _) =

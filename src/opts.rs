@@ -1,7 +1,7 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt, Clone)]
-pub struct EventOpts {
+pub struct ServerOpts {
     /// Activate debug mode
     #[structopt(short = "d", long = "debug")]
     pub debug: bool,
