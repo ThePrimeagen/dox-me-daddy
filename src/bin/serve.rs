@@ -1,15 +1,14 @@
 mod server;
 
 use dox_me_daddy::fan::FanIn;
-use dox_me_daddy::forwarder::{ReceiverGiver, ReceiverTaker, connect};
+use dox_me_daddy::forwarder::{connect, ReceiverGiver, ReceiverTaker};
 use dox_me_daddy::pipeline::Pipeline;
 use dox_me_daddy::quirk::Quirk;
 use dox_me_daddy::{error::DoxMeDaddyError, opts::ServerOpts};
 
-
-use structopt::StructOpt;
 use dotenv::dotenv;
-use log::{warn};
+use log::warn;
+use structopt::StructOpt;
 
 use crate::server::Server;
 

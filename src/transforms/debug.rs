@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::{pipeline::PipelineTransform, forwarder::ForwarderEvent};
+use crate::{forwarder::ForwarderEvent, pipeline::PipelineTransform};
 
 pub struct DebugTransform;
 impl PipelineTransform for DebugTransform {
@@ -9,5 +9,3 @@ impl PipelineTransform for DebugTransform {
         return event;
     }
 }
-
-

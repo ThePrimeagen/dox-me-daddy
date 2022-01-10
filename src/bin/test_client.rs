@@ -1,12 +1,11 @@
 use dotenv::dotenv;
 use dox_me_daddy::{error::DoxMeDaddyError, opts::ServerOpts};
-use futures::{pin_mut, future};
+use futures::{future, pin_mut};
+use futures_util::StreamExt;
 use log::info;
 use reqwest::Url;
 use structopt::StructOpt;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use futures_util::{StreamExt};
-
 
 #[tokio::main]
 async fn main() -> Result<(), DoxMeDaddyError> {
@@ -16,8 +15,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     let opts = ServerOpts::from_args();
     let url = format!("ws://{}:{}", opts.addr, opts.port);
 
-    let (socket, _) =
-        connect_async(Url::parse(url.as_str()).unwrap()).await?;
+    let (socket, _) = connect_async(Url::parse(url.as_str()).unwrap()).await?;
 
     let (outgoing, incoming) = socket.split();
     let (tx, rx) = futures_channel::mpsc::unbounded();
@@ -27,7 +25,9 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     pin_mut!(inner_tx);
     let read_incoming = incoming.for_each(|msg| async {
         info!("Message Received {:?}", msg);
-        inner_tx.unbounded_send(msg.unwrap().clone()).expect("transactions to be successful");
+        inner_tx
+            .unbounded_send(msg.unwrap().clone())
+            .expect("transactions to be successful");
     });
 
     pin_mut!(write_outgoing, read_incoming);

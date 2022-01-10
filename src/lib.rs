@@ -1,9 +1,9 @@
-pub mod twitch;
-pub mod quirk;
 pub mod error;
-pub mod opts;
-pub mod socket;
-pub mod forwarder;
-pub mod pipeline;
 pub mod fan;
+pub mod forwarder;
+pub mod opts;
+pub mod pipeline;
+pub mod quirk;
+pub mod socket;
 pub mod transforms;
+pub mod twitch;

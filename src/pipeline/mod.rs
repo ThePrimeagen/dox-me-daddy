@@ -1,15 +1,15 @@
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender, UnboundedReceiver};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
 use crate::error::DoxMeDaddyError;
 use crate::fan::FanIn;
-use crate::forwarder::{Forwarder, ReceiverGiver, ForwarderEvent};
+use crate::forwarder::{Forwarder, ForwarderEvent, ReceiverGiver};
 use crate::opts::ServerOpts;
 use crate::transforms::debug::DebugTransform;
-use crate::{simple_receiver_giver, simple_forwarder};
-use log::{info};
+use crate::{simple_forwarder, simple_receiver_giver};
+use log::info;
 
 type TokioUReceiver = UnboundedReceiver<ForwarderEvent>;
 type TokioUSender = UnboundedSender<ForwarderEvent>;
@@ -39,7 +39,8 @@ async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: Tok
             .fold(Some(message), |m, t| t.transform(m));
 
         if let Some(message) = message {
-            tx.send(message).expect("handle_pipeline#send should never fail");
+            tx.send(message)
+                .expect("handle_pipeline#send should never fail");
         }
     }
 }
@@ -54,11 +55,10 @@ impl Pipeline {
         let transforms = Arc::new(Mutex::new(transforms));
 
         // Unwrap safe here.
-        let join_handle = tokio::spawn(
-            handle_pipeline(
-                fan_in.take_receiver().unwrap(),
-                transforms.clone(),
-                tx.clone(),
+        let join_handle = tokio::spawn(handle_pipeline(
+            fan_in.take_receiver().unwrap(),
+            transforms.clone(),
+            tx.clone(),
         ));
 
         return Pipeline {
@@ -71,8 +71,9 @@ impl Pipeline {
     }
 
     pub fn add_transformer(&mut self, transformer: Box<dyn PipelineTransform + Send>) {
-        self.transforms.lock().expect("Pipeline#add_transforms lock should never fail").push(transformer);
+        self.transforms
+            .lock()
+            .expect("Pipeline#add_transforms lock should never fail")
+            .push(transformer);
     }
 }
-
-

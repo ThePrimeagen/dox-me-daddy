@@ -1,6 +1,9 @@
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::{forwarder::{Forwarder, ForwarderEvent}, error::DoxMeDaddyError};
+use crate::{
+    error::DoxMeDaddyError,
+    forwarder::{Forwarder, ForwarderEvent},
+};
 
 #[derive(Debug)]
 pub struct Socket {
@@ -10,7 +13,7 @@ pub struct Socket {
     pub id: usize,
 }
 
-impl Eq for Socket { }
+impl Eq for Socket {}
 
 impl std::hash::Hash for Socket {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -32,7 +35,7 @@ impl Forwarder for Socket {
             ForwarderEvent::WebsocketMessage(m) => {
                 self.tx.unbounded_send(m)?;
                 return Ok(());
-            },
+            }
             _ => return Ok(()),
         }
     }

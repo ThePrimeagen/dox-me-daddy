@@ -1,6 +1,6 @@
 use log::error;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::task::JoinHandle;
 use tokio_tungstenite::tungstenite::connect;
 use url::Url;
@@ -26,10 +26,13 @@ struct ResponseBody {
 
 pub async fn get_quirk_token() -> Result<String, DoxMeDaddyError> {
     let token = std::env::var("QUIRK_TOKEN").expect("QUIRK_TOKEN should be an env variable");
-    let request = RequestBody { access_token: token };
+    let request = RequestBody {
+        access_token: token,
+    };
 
     let client = reqwest::Client::new();
-    let res: ResponseBody = client.post("https://websocket.quirk.tools/token")
+    let res: ResponseBody = client
+        .post("https://websocket.quirk.tools/token")
         .json(&request)
         .header("Content-Type", "application/json")
         .send()
@@ -48,9 +51,7 @@ impl Quirk {
         let url = format!("wss://websocket.quirk.tools?access_token={}", quirk_token);
         let (tx, rx) = unbounded_channel();
 
-        let (mut socket, _) =
-            connect(Url::parse(url.as_str()).unwrap())
-                .expect("Can't connect");
+        let (mut socket, _) = connect(Url::parse(url.as_str()).unwrap()).expect("Can't connect");
 
         // first thing you should do: start consuming incoming messages,
         // otherwise they will back up.

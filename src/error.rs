@@ -1,5 +1,7 @@
 use tokio::task::JoinError;
-use tokio_tungstenite::tungstenite::{handshake::server::NoCallback, ServerHandshake, HandshakeError, Message};
+use tokio_tungstenite::tungstenite::{
+    handshake::server::NoCallback, HandshakeError, Message, ServerHandshake,
+};
 
 use crate::forwarder::ForwarderEvent;
 
@@ -19,7 +21,7 @@ pub enum DoxMeDaddyError {
     FutureTrySendForwarderError(FutureSendForwarder),
     JoinError(JoinError),
     ReceiverGiver,
-    Unknown
+    Unknown,
 }
 
 impl From<JoinError> for DoxMeDaddyError {
