@@ -1,5 +1,7 @@
 use tokio_tungstenite::tungstenite::Message;
 
+use crate::{forwarder::{Forwarder, ForwarderEvent}, error::DoxMeDaddyError};
+
 #[derive(Debug)]
 pub struct Socket {
     pub is_prime: bool,
@@ -24,5 +26,14 @@ impl PartialEq<Socket> for Socket {
     }
 }
 
-
-
+impl Forwarder for Socket {
+    fn push(&self, event: ForwarderEvent) -> Result<(), DoxMeDaddyError> {
+        match event {
+            ForwarderEvent::WebsocketMessage(m) => {
+                self.tx.unbounded_send(m)?;
+                return Ok(());
+            },
+            _ => return Ok(()),
+        }
+    }
+}

@@ -1,12 +1,16 @@
 
 
+use tokio::task::JoinError;
 use tokio_tungstenite::tungstenite::{handshake::server::NoCallback, ServerHandshake, HandshakeError, Message};
+
+use crate::forwarder::ForwarderEvent;
 
 
 
 type ServerHandshakeError = HandshakeError<ServerHandshake<std::net::TcpStream, NoCallback>>;
 type TokioTungError = tokio_tungstenite::tungstenite::Error;
-type FutureSendError = futures_channel::mpsc::TrySendError<Message>;
+type FutureSendMessage = futures_channel::mpsc::TrySendError<Message>;
+type FutureSendForwarder = futures_channel::mpsc::TrySendError<ForwarderEvent>;
 
 #[derive(Debug)]
 pub enum DoxMeDaddyError {
@@ -15,8 +19,16 @@ pub enum DoxMeDaddyError {
     ReqwestError(reqwest::Error),
     IoError(std::io::Error),
     TungsteniteError(TokioTungError),
-    FutureTrySendError(FutureSendError),
+    FutureTrySendMessageError(FutureSendMessage),
+    FutureTrySendForwarderError(FutureSendForwarder),
+    JoinError(JoinError),
     Unknown
+}
+
+impl From<JoinError> for DoxMeDaddyError {
+    fn from(err: JoinError) -> Self {
+        return DoxMeDaddyError::JoinError(err);
+    }
 }
 
 impl From<TokioTungError> for DoxMeDaddyError {
@@ -25,9 +37,15 @@ impl From<TokioTungError> for DoxMeDaddyError {
     }
 }
 
-impl From<FutureSendError> for DoxMeDaddyError {
-    fn from(err: FutureSendError) -> Self {
-        return DoxMeDaddyError::FutureTrySendError(err);
+impl From<FutureSendForwarder> for DoxMeDaddyError {
+    fn from(err: FutureSendForwarder) -> Self {
+        return DoxMeDaddyError::FutureTrySendForwarderError(err);
+    }
+}
+
+impl From<FutureSendMessage> for DoxMeDaddyError {
+    fn from(err: FutureSendMessage) -> Self {
+        return DoxMeDaddyError::FutureTrySendMessageError(err);
     }
 }
 
