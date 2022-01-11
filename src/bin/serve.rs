@@ -41,6 +41,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     pipeline.add_transformer(Box::new(QuirkFilterTransform));
 
     if opts.debug {
+        warn!("debugging transform added.");
         pipeline.add_transformer(Box::new(DebugTransform));
     }
 
