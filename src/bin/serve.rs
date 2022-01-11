@@ -36,10 +36,11 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     to_pipeline.take(&mut twitch)?;
 
     let mut pipeline = Pipeline::new(to_pipeline, &opts);
+    pipeline.add_transformer(Box::new(DebugTransform { pre_message: "Pre Pipeline".to_string() }));
     pipeline.add_transformer(Box::new(TwitchTransform));
     pipeline.add_transformer(Box::new(QuirkTransform));
     pipeline.add_transformer(Box::new(QuirkFilterTransform));
-    pipeline.add_transformer(Box::new(DebugTransform));
+    pipeline.add_transformer(Box::new(DebugTransform { pre_message: "Post Pipeline".to_string() }));
 
     tokio::spawn(connect(pipeline.take_receiver(), server.tx.clone()));
 
