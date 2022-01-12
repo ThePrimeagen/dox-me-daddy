@@ -42,7 +42,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     pipeline.add_transformer(Box::new(QuirkFilterTransform));
     pipeline.add_transformer(Box::new(DebugTransform { pre_message: "Post Pipeline".to_string() }));
 
-    tokio::spawn(connect_async(pipeline.take_receiver(), server.tx.clone()));
+    tokio::spawn(connect_async(pipeline.take_receiver(), server.tx.clone(), "top level serve".to_string()));
 
     // Until the server dies, we ride
     let quirk_and_twitch = future::select(quirk.join_handle, twitch.join_handle);

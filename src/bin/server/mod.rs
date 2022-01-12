@@ -92,15 +92,7 @@ async fn handle_socket(
     match peer_map.lock() {
         Ok(mut peer_map) => {
             info!("removing {} from peer_map", id);
-            peer_map.insert(
-                id,
-                Socket {
-                    addr,
-                    tx: inbound_tx.clone(),
-                    is_prime: false, // TODO: I am still wondering about this...
-                    id,
-                },
-            );
+            peer_map.remove(&id);
         }
         _ => {
             error!("Unable to detach {} to peer_map, lock failed", id);

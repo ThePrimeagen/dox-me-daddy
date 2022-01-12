@@ -167,14 +167,16 @@ pub async fn connect(
 pub async fn connect_async(
     giver: Option<FutureReceiver>,
     forwarder: FutureSender,
+    debug_info: String,
 ) -> Result<(), DoxMeDaddyError> {
 
     if let Some(mut rx) = giver {
+        info!("connect_async waiting on rx.map({})", debug_info);
         while let Some(message) = rx.next().await {
-            info!("connect_async rx.map {:?}", message);
+            info!("connect_async rx.map({}) {:?}", debug_info, message);
             match forwarder.unbounded_send(message) {
                 Err(e) => {
-                    error!("connect_async failed to unbounded send {:?}", e);
+                    error!("connect_async failed to unbounded send({}) {:?}", debug_info, e);
                     break;
                 },
                 _ => {}
