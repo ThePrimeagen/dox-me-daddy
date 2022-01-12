@@ -6,11 +6,10 @@ use std::{
 
 use dox_me_daddy::{
     error::DoxMeDaddyError,
-    fan::FanIn,
-    forwarder::{Forwarder, ForwarderEvent, ReceiverGiver},
+    fan::FanInAsync,
+    forwarder::{Forwarder, ForwarderEvent, ReceiverGiverAsync},
     opts::ServerOpts,
-    simple_forwarder, simple_receiver_giver,
-    socket::Socket,
+    socket::Socket, async_forwarder, async_receiver_giver,
 };
 
 use futures_channel::mpsc::unbounded;
@@ -18,25 +17,24 @@ use futures_util::{future, stream::TryStreamExt, StreamExt};
 use log::{info, error};
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::mpsc::unbounded_channel,
     task::JoinHandle,
 };
 
 type PeerMap = Arc<Mutex<HashMap<usize, Socket>>>;
-type TokioUSender = tokio::sync::mpsc::UnboundedSender<ForwarderEvent>;
-type TokioUReceiver = tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>;
+type FutureReceiver = futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>;
+type FutureSender = futures_channel::mpsc::UnboundedSender<ForwarderEvent>;
 
 async fn handle_socket(
     id: usize,
     stream: TcpStream,
     addr: SocketAddr,
     peer_map: PeerMap,
-    fan_in: Arc<Mutex<FanIn>>,
+    fan_in: Arc<Mutex<FanInAsync>>,
 ) -> Result<(), DoxMeDaddyError> {
     let websocket = tokio_tungstenite::accept_async(stream).await?;
     let (outgoing, incoming) = websocket.split();
     let (inbound_tx, inbound_rx) = unbounded();
-    let (outbound_tx, outbound_rx) = unbounded_channel::<ForwarderEvent>();
+    let (outbound_tx, outbound_rx) = unbounded::<ForwarderEvent>();
 
     fan_in
         .lock()
@@ -78,7 +76,7 @@ async fn handle_socket(
         }
 
         outbound_tx
-            .send(ForwarderEvent::WebsocketMessage(msg))
+            .unbounded_send(ForwarderEvent::WebsocketMessage(msg))
             .expect("Socket#outbound_tx to never fail");
 
         return future::ok(());
@@ -113,12 +111,12 @@ async fn handle_socket(
 }
 
 async fn handle_websocket_to_server(
-    mut rx: TokioUReceiver,
+    mut rx: FutureReceiver,
     peer_map: PeerMap,
 ) -> Result<(), DoxMeDaddyError> {
     loop {
         info!("Server#handle_websocket_to_server waiting for message");
-        if let Some(message) = rx.recv().await {
+        if let Some(message) = rx.next().await {
             info!("Server#handle_websocket_to_server got Some(message). {:?}", message);
             info!("Server#handle_websocket_to_server unlocking peer_map");
             for (id, peer) in peer_map.lock().expect("peer_map lock to never fail").iter() {
@@ -134,13 +132,13 @@ async fn handle_websocket_to_server(
 pub struct Server {
     pub peer_map: PeerMap,
     pub join_handle: JoinHandle<()>,
-    pub tx: TokioUSender,
+    pub tx: FutureSender,
 
-    rx: Option<TokioUReceiver>,
+    rx: Option<FutureReceiver>,
 }
 
-simple_receiver_giver!(Server);
-simple_forwarder!(Server);
+async_receiver_giver!(Server);
+async_forwarder!(Server);
 
 impl Server {
     pub async fn new(opts: &ServerOpts) -> Result<Server, DoxMeDaddyError> {
@@ -149,9 +147,8 @@ impl Server {
 
         // TODO: I don't know how to do them with future channels...
         // TODO: FanOut turns out to be harder...  I probably need to implement with WeakPointers.
-        let fan_in_ws_messages = Arc::new(Mutex::new(FanIn::new()));
-        let (to_server_sockets, to_server_sockets_receiver) =
-            tokio::sync::mpsc::unbounded_channel::<ForwarderEvent>();
+        let fan_in_ws_messages = Arc::new(Mutex::new(FanInAsync::new()));
+        let (to_server_sockets, to_server_sockets_receiver) = unbounded();
 
         info!("TcpListener created on {}:{}", opts.addr, opts.port);
 

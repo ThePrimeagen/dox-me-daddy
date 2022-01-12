@@ -1,6 +1,8 @@
+use futures_util::{StreamExt};
+
 use log::{info, error};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+
 use tokio_tungstenite::tungstenite::Message;
 use twitch_irc::message::{ServerMessage, PrivmsgMessage};
 
@@ -8,6 +10,9 @@ use crate::error::DoxMeDaddyError;
 
 type TokioUSender = tokio::sync::mpsc::UnboundedSender<ForwarderEvent>;
 type TokioUReceiver = tokio::sync::mpsc::UnboundedReceiver<ForwarderEvent>;
+
+type FutureReceiver = futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>;
+type FutureSender = futures_channel::mpsc::UnboundedSender<ForwarderEvent>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QuirkReward {
@@ -128,8 +133,21 @@ pub trait ReceiverGiver {
     fn give_receiver(&mut self, rx: Option<TokioUReceiver>);
 }
 
+
 pub trait ReceiverTaker {
     fn take<T: ReceiverGiver>(&mut self, giver: &mut T) -> Result<(), DoxMeDaddyError>;
+}
+
+pub trait ReceiverTakerAsync {
+    fn take<T: ReceiverGiverAsync>(&mut self, giver: &mut T) -> Result<(), DoxMeDaddyError>;
+}
+
+
+pub trait ReceiverGiverAsync {
+    fn take_receiver(&mut self) -> Option<FutureReceiver>;
+
+    // TODO: Do we even need to do this?
+    fn give_receiver(&mut self, rx: Option<FutureReceiver>);
 }
 
 pub async fn connect(
@@ -146,7 +164,66 @@ pub async fn connect(
     return Ok(());
 }
 
+pub async fn connect_async(
+    giver: Option<FutureReceiver>,
+    forwarder: FutureSender,
+) -> Result<(), DoxMeDaddyError> {
+
+    if let Some(mut rx) = giver {
+        while let Some(message) = rx.next().await {
+            info!("connect_async rx.map {:?}", message);
+            match forwarder.unbounded_send(message) {
+                Err(e) => {
+                    error!("connect_async failed to unbounded send {:?}", e);
+                    break;
+                },
+                _ => {}
+            }
+        }
+    }
+
+    return Ok(());
+}
+
 mod forwarder_macros {
+
+    #[macro_export]
+    macro_rules! async_forwarder {
+        ($id:ident) => {
+            impl Forwarder for $id {
+                // TODO: how to expand id into the string
+                // TODO: stringify! ??
+                fn push(&self, event: ForwarderEvent) -> Result<(), DoxMeDaddyError> {
+                    self.tx.unbounded_send(event).expect("{$id}#tx should never fail");
+                    return Ok(());
+                }
+            }
+        };
+    }
+
+    #[macro_export]
+    macro_rules! async_receiver_giver {
+        ($id:ident) => {
+            impl ReceiverGiverAsync for $id {
+                fn take_receiver(
+                    &mut self,
+                ) -> Option<futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>> {
+                    let mut rx: Option<futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>> = None;
+                    std::mem::swap(&mut self.rx, &mut rx);
+                    return rx;
+                }
+
+                fn give_receiver(
+                    &mut self,
+                    rx: Option<futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>>,
+                ) {
+                    if let Some(rx) = rx {
+                        self.rx = Some(rx);
+                    }
+                }
+            }
+        };
+    }
 
     #[macro_export]
     macro_rules! simple_forwarder {

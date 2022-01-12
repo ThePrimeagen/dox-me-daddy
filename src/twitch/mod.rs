@@ -1,23 +1,27 @@
-use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver, unbounded_channel};
+use futures_channel::mpsc::unbounded;
+
 use tokio::task::JoinHandle;
 use twitch_irc::login::{StaticLoginCredentials};
 use twitch_irc::TwitchIRCClient;
 
 use twitch_irc::{ClientConfig, SecureTCPTransport};
 
-use crate::error::DoxMeDaddyError;
-use crate::forwarder::{Forwarder, ReceiverGiver, ForwarderEvent};
+
+use crate::forwarder::{ReceiverGiverAsync, ForwarderEvent};
 use crate::opts::ServerOpts;
-use crate::{simple_receiver_giver, simple_forwarder};
+use crate::{async_receiver_giver};
+
+type FutureReceiver = futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>;
+type FutureSender = futures_channel::mpsc::UnboundedSender<ForwarderEvent>;
 
 pub struct Twitch {
     pub join_handle: JoinHandle<()>,
-    tx: UnboundedSender<ForwarderEvent>,
-    rx: Option<UnboundedReceiver<ForwarderEvent>>,
+    tx: FutureSender,
+    rx: Option<FutureReceiver>,
     client: TwitchIRCClient<SecureTCPTransport, StaticLoginCredentials>
 }
 
-simple_receiver_giver!(Twitch);
+async_receiver_giver!(Twitch);
 // TODO: simple_forwarder needs to be implemented
 // simple_forwarder!(Twitch);
 
@@ -28,7 +32,7 @@ impl Twitch {
         return Ok(());
     }
 
-    pub async fn new(opts: &ServerOpts) -> Twitch {
+    pub async fn new(_opts: &ServerOpts) -> Twitch {
 
         let login_name = std::env::var("OAUTH_NAME").expect("OAUTH_NAME is required for twitch client");
         let oauth_token = std::env::var("OAUTH_TOKEN").expect("OAUTH_TOKEN is required for twitch client");
@@ -44,12 +48,12 @@ impl Twitch {
         // join a channel
         client.join("theprimeagen".to_owned());
 
-        let (tx, rx) = unbounded_channel();
+        let (tx, rx) = unbounded();
         let inner_tx = tx.clone();
         let join_handle = tokio::spawn(async move {
             loop {
                 if let Some(message) = incoming_messages.recv().await {
-                    inner_tx.send(ForwarderEvent::TwitchMessageRaw(message)).expect("Never going to give you up");
+                    inner_tx.unbounded_send(ForwarderEvent::TwitchMessageRaw(message)).expect("Never going to give you up");
                 } else {
                     print!("LOOK AT ME FAIL");
                 }

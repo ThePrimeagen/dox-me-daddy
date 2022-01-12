@@ -1,37 +1,39 @@
 use std::sync::{Arc, Mutex};
+use futures_channel::mpsc::unbounded;
+use futures_util::{StreamExt};
 
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+
 use tokio::task::JoinHandle;
 
 use crate::error::DoxMeDaddyError;
-use crate::fan::FanIn;
-use crate::forwarder::{Forwarder, ForwarderEvent, ReceiverGiver};
+use crate::fan::{FanInAsync};
+use crate::forwarder::{Forwarder, ForwarderEvent, ReceiverGiverAsync};
 use crate::opts::ServerOpts;
-use crate::transforms::debug::DebugTransform;
-use crate::{simple_forwarder, simple_receiver_giver};
-use log::info;
 
-type TokioUReceiver = UnboundedReceiver<ForwarderEvent>;
-type TokioUSender = UnboundedSender<ForwarderEvent>;
+use crate::{async_receiver_giver, async_forwarder};
+
+
 type Transforms = Arc<Mutex<Vec<Box<dyn PipelineTransform + Send>>>>;
 
+type FutureReceiver = futures_channel::mpsc::UnboundedReceiver<ForwarderEvent>;
+type FutureSender = futures_channel::mpsc::UnboundedSender<ForwarderEvent>;
 pub struct Pipeline {
     pub join_handle: JoinHandle<()>,
 
-    tx: TokioUSender,
-    rx: Option<TokioUReceiver>,
+    tx: FutureSender,
+    rx: Option<FutureReceiver>,
     transforms: Transforms,
 }
 
-simple_receiver_giver!(Pipeline);
-simple_forwarder!(Pipeline);
+async_receiver_giver!(Pipeline);
+async_forwarder!(Pipeline);
 
 pub trait PipelineTransform {
     fn transform(&self, event: Option<ForwarderEvent>) -> Option<ForwarderEvent>;
 }
 
-async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: TokioUSender) {
-    while let Some(message) = rx.recv().await {
+async fn handle_pipeline(mut rx: FutureReceiver, transforms: Transforms, tx: FutureSender) {
+    while let Some(message) = rx.next().await {
         let message = transforms
             .lock()
             .expect("Pipeline#add_transforms lock should never fail")
@@ -39,15 +41,15 @@ async fn handle_pipeline(mut rx: TokioUReceiver, transforms: Transforms, tx: Tok
             .fold(Some(message), |m, t| t.transform(m));
 
         if let Some(message) = message {
-            tx.send(message)
+            tx.unbounded_send(message)
                 .expect("handle_pipeline#send should never fail");
         }
     }
 }
 
 impl Pipeline {
-    pub fn new(mut fan_in: FanIn, opts: &ServerOpts) -> Pipeline {
-        let (tx, rx) = unbounded_channel();
+    pub fn new(mut fan_in: FanInAsync, _opts: &ServerOpts) -> Pipeline {
+        let (tx, rx) = unbounded();
         let transforms: Vec<Box<dyn PipelineTransform + Send>> = vec![];
         let transforms = Arc::new(Mutex::new(transforms));
 

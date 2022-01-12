@@ -1,7 +1,7 @@
 mod server;
 
-use dox_me_daddy::fan::FanIn;
-use dox_me_daddy::forwarder::{connect, ReceiverGiver, ReceiverTaker};
+use dox_me_daddy::fan::{FanInAsync};
+use dox_me_daddy::forwarder::{ReceiverGiverAsync, ReceiverTakerAsync, connect_async};
 use dox_me_daddy::pipeline::Pipeline;
 use dox_me_daddy::quirk::Quirk;
 use dox_me_daddy::transforms::debug::DebugTransform;
@@ -25,7 +25,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     warn!("Starting Application");
 
     let opts = ServerOpts::from_args();
-    let mut to_pipeline = FanIn::new();
+    let mut to_pipeline = FanInAsync::new();
 
     let mut server = Server::new(&opts).await?;
     let mut quirk = Quirk::new(&opts).await?;
@@ -42,7 +42,7 @@ async fn main() -> Result<(), DoxMeDaddyError> {
     pipeline.add_transformer(Box::new(QuirkFilterTransform));
     pipeline.add_transformer(Box::new(DebugTransform { pre_message: "Post Pipeline".to_string() }));
 
-    tokio::spawn(connect(pipeline.take_receiver(), server.tx.clone()));
+    tokio::spawn(connect_async(pipeline.take_receiver(), server.tx.clone()));
 
     // Until the server dies, we ride
     let quirk_and_twitch = future::select(quirk.join_handle, twitch.join_handle);
