@@ -15,7 +15,7 @@ use dox_me_daddy::{
 
 use futures_channel::mpsc::unbounded;
 use futures_util::{future, stream::TryStreamExt, StreamExt};
-use log::info;
+use log::{info, error};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::mpsc::unbounded_channel,
@@ -33,8 +33,6 @@ async fn handle_socket(
     peer_map: PeerMap,
     fan_in: Arc<Mutex<FanIn>>,
 ) -> Result<(), DoxMeDaddyError> {
-    info!("New Websocket Server Connection");
-
     let websocket = tokio_tungstenite::accept_async(stream).await?;
     let (outgoing, incoming) = websocket.split();
     let (inbound_tx, inbound_rx) = unbounded();
@@ -49,6 +47,7 @@ async fn handle_socket(
     // would allow for me to have a better fan-out method
     match peer_map.lock() {
         Ok(mut peer_map) => {
+            info!("attaching ws {} to peer_map which has {} peers", id, peer_map.len());
             peer_map.insert(
                 id,
                 Socket {
@@ -59,7 +58,9 @@ async fn handle_socket(
                 },
             );
         }
-        _ => {}
+        _ => {
+            error!("Unable to attach {} to peer_map, lock failed", id);
+        }
     };
 
     let incoming_msg = incoming.try_for_each(|msg| {
@@ -86,6 +87,23 @@ async fn handle_socket(
 
     future::select(incoming_msg, outgoing_msg).await;
     info!("Websocket has disconnected {}", id);
+    match peer_map.lock() {
+        Ok(mut peer_map) => {
+            info!("removing {} from peer_map", id);
+            peer_map.insert(
+                id,
+                Socket {
+                    addr,
+                    tx: inbound_tx.clone(),
+                    is_prime: false, // TODO: I am still wondering about this...
+                    id,
+                },
+            );
+        }
+        _ => {
+            error!("Unable to detach {} to peer_map, lock failed", id);
+        }
+    };
 
     return Ok(());
 }
@@ -131,7 +149,9 @@ impl Server {
         let inner_fan_in = fan_in_ws_messages.clone();
         let join_handle = tokio::spawn(async move {
             let mut id = 1;
+            info!("Waiting for connection");
             while let Ok((stream, client_addr)) = server.accept().await {
+                info!("Spawning handler for connection {}", id);
                 tokio::spawn(handle_socket(
                     id,
                     stream,
