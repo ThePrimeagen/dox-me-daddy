@@ -80,10 +80,14 @@ async fn handle_socket(
         outbound_tx
             .send(ForwarderEvent::WebsocketMessage(msg))
             .expect("Socket#outbound_tx to never fail");
+
         return future::ok(());
     });
 
-    let outgoing_msg = inbound_rx.map(Ok).forward(outgoing);
+    let outgoing_msg = inbound_rx.map(|e| {
+        info!("socket#inbound_rx({}) -> {:?}", id, e);
+        Ok(e)
+    }).forward(outgoing);
 
     future::select(incoming_msg, outgoing_msg).await;
     info!("Websocket has disconnected {}", id);
