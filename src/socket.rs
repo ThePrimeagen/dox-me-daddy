@@ -1,3 +1,4 @@
+use log::info;
 use tokio_tungstenite::tungstenite::Message;
 use twitch_irc::message::{PrivmsgMessage, ServerMessage};
 
@@ -32,6 +33,7 @@ impl PartialEq<Socket> for Socket {
 
 impl Forwarder for Socket {
     fn push(&self, event: ForwarderEvent) -> Result<(), DoxMeDaddyError> {
+        info!("Socket({})#push event({:?})", self.id, event);
         self.tx.unbounded_send(event.try_into()?)?;
         return Ok(());
     }

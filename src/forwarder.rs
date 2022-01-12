@@ -78,15 +78,21 @@ impl TryFrom<ForwarderEvent> for Message {
     type Error = DoxMeDaddyError;
 
     fn try_from(event: ForwarderEvent) -> Result<Self, Self::Error> {
+        info!("ForwardEvent#try_from");
         match event {
             ForwarderEvent::WebsocketMessage(m) => return Ok(m),
             ForwarderEvent::TwitchMessage(m) => {
-                return Ok(Message::Text(serde_json::to_string(&m)?));
+                let stringified_event = serde_json::to_string(&m)?;
+                info!("ForwardEvent#try_from#twitch_message {}", stringified_event);
+                return Ok(Message::Text(stringified_event));
             }
             ForwarderEvent::QuirkMessage(m) => {
-                return Ok(Message::Text(serde_json::to_string(&m)?));
+                let stringified_event = serde_json::to_string(&m)?;
+                info!("ForwardEvent#try_from#quirk_message {}", stringified_event);
+                return Ok(Message::Text(stringified_event));
             },
             _ => {
+                info!("ForwardEvent#try_from#unknown");
                 return Ok(Message::Text("Bad Serialization".to_string()));
             }
         }

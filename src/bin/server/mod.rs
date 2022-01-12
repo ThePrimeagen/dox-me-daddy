@@ -112,13 +112,19 @@ async fn handle_websocket_to_server(
     mut rx: TokioUReceiver,
     peer_map: PeerMap,
 ) -> Result<(), DoxMeDaddyError> {
-    while let Some(message) = rx.recv().await {
-        for (_, peer) in peer_map.lock().expect("peer_map lock to never fail").iter() {
-            peer.push(message.clone())?;
+    loop {
+        info!("Server#handle_websocket_to_server waiting for message");
+        if let Some(message) = rx.recv().await {
+            info!("Server#handle_websocket_to_server got Some(message). {:?}", message);
+            info!("Server#handle_websocket_to_server unlocking peer_map");
+            for (id, peer) in peer_map.lock().expect("peer_map lock to never fail").iter() {
+                info!("Server#handle_websocket_to_server#peer_map sending message to {}", id);
+                peer.push(message.clone())?;
+            }
+        } else {
+            error!("Server#handle_websocket_to_server got a non Some(message).  Restarting loop.");
         }
     }
-
-    return Ok(());
 }
 
 pub struct Server {
