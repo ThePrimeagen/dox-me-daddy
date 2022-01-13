@@ -1,2 +1,12 @@
-/target
+# no hope for js
+node_modules
+package.json
+yarn.lock
+*.ts
+
+#build
+target/*
+!target/release/serve
+
+# doxxer disrespect
 .env
